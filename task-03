@@ -1,0 +1,73 @@
+import pandas as pd
+import numpy as np
+import urllib.request
+import zipfile
+import io
+from sklearn.model_selection import train_test_split
+from sklearn.preprocessing import OneHotEncoder
+from sklearn.compose import ColumnTransformer
+from sklearn.tree import DecisionTreeClassifier, plot_tree
+from sklearn.metrics import classification_report, confusion_matrix, accuracy_score
+import matplotlib.pyplot as plt
+
+ 1. Fetch and Load the UCI Bank Marketing Dataset directly into Colab
+print("Fetching dataset from UCI Repository... Please wait a few seconds...")
+url = "https://archive.ics.uci.edu/static/public/222/bank+marketing.zip"
+
+with urllib.request.urlopen(url) as response:
+    with zipfile.ZipFile(io.BytesIO(response.read())) as outer_zip:
+        with outer_zip.open('bank.zip') as inner_zip_bytes:
+            with zipfile.ZipFile(io.BytesIO(inner_zip_bytes.read())) as inner_zip:
+                with inner_zip.open('bank-full.csv') as csv_file:
+                    df = pd.read_csv(csv_file, sep=';')
+
+print(f"Dataset successfully loaded! Total rows: {df.shape[0]}, Total columns: {df.shape[1]}\n")
+
+ 2. Data Preprocessing (Demographic & Behavioral features)
+categorical_features = ['job', 'marital', 'education', 'default', 'housing', 'loan']
+numerical_features = ['age', 'balance', 'campaign', 'previous']
+
+X = df[categorical_features + numerical_features]
+y = df['y'].apply(lambda x: 1 if x == 'yes' else 0) # 'yes' -> 1, 'no' -> 0
+ Convert text features to numbers (One-Hot Encoding)
+preprocessor = ColumnTransformer(
+    transformers=[('cat', OneHotEncoder(drop='first', sparse_output=False), categorical_features)],
+    remainder='passthrough'
+)
+X_processed = preprocessor.fit_transform(X)
+
+ Get feature names for clarity
+encoded_cat_names = preprocessor.named_transformers_['cat'].get_feature_names_out(categorical_features).tolist()
+feature_names = encoded_cat_names + numerical_features
+
+ 3. Train-Test Split (70% Train, 30% Test)
+X_train, X_test, y_train, y_test = train_test_split(
+    X_processed, y, test_size=0.3, random_state=42, stratify=y
+)
+
+ 4. Train Decision Tree Classifier
+ max_depth=4 nu vachiruken, thailathan tree visualization neat-ah theriyum colab-la
+clf = DecisionTreeClassifier(criterion='gini', max_depth=4, min_samples_split=20, random_state=42)
+clf.fit(X_train, y_train)
+print("Model training complete!\n")
+
+ 5. Evaluate the Model
+y_pred = clf.predict(X_test)
+print("=== MODEL PERFORMANCE ===")
+print(f"Accuracy Score: {accuracy_score(y_test, y_pred):.4f}\n")
+print("Classification Report:")
+print(classification_report(y_test, y_pred, target_names=['No Purchase', 'Purchase']))
+
+ 6. Visualize the Decision Tree inside Colab
+print("\nPlotting the Decision Tree...")
+plt.figure(figsize=(22, 12))
+plot_tree(
+    clf, 
+    feature_names=feature_names, 
+    class_names=['No Purchase', 'Purchase'], 
+    filled=True, 
+    rounded=True, 
+    fontsize=10
+)
+plt.title("Bank Customer Purchase Prediction Tree", fontsize=16)
+plt.show()
